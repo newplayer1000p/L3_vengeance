@@ -20,6 +20,9 @@ export function ExercisePlayer() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [activeNoteIdx, setActiveNoteIdx] = useState<number | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [micError, setMicError] = useState<string | null>(null);
+  const [quizSelectedIdx, setQuizSelectedIdx] = useState<number | null>(null);
 
   // Metronome State
   const [mBPM, setMBPM] = useState(80);
@@ -31,20 +34,64 @@ export function ExercisePlayer() {
   const [bCnt, setBCnt] = useState(0);
   const [isBreathRunning, setIsBreathRunning] = useState(false);
   
-  // Timers
+  // Ref for MediaRecorder & Timer Streams
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<any>(null);
   const metroTimerRef = useRef<any>(null);
   const breathTimerRef = useRef<any>(null);
 
-  useEffect(() => {
-    if (isRecording) {
+  const startRecording = async () => {
+    setAudioUrl(null);
+    setMicError(null);
+    audioChunksRef.current = [];
+    setRecordingTime(0);
+    setIsRecording(true);
+
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("L'API MediaDevices ou getUserMedia n'est pas supportée dans votre navigateur ou contexte actuel (ex. iframe non sécurisée).");
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const url = URL.createObjectURL(audioBlob);
+        setAudioUrl(url);
+        // Stop and release mic stream
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = setInterval(() => setRecordingTime((t) => t + 1), 1000);
-    } else {
-      setRecordingTime(0);
-      clearInterval(timerRef.current);
+    } catch (err: any) {
+      console.error("Mic access denied or error:", err);
+      setMicError(
+        "Accès au microphone refusé ou impossible. Veuillez accorder la permission dans votre navigateur. " +
+        "Si l'application est ouverte dans une vue intégrée de test, veuillez cliquer sur l'icône de partage / d'ouverture globale en haut à droite pour ouvrir l'application dans un onglet autonome."
+      );
+      setIsRecording(false);
     }
-    return () => clearInterval(timerRef.current);
-  }, [isRecording]);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (e) {}
+    }
+    setIsRecording(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+  };
 
   useEffect(() => {
     if (isMetroRunning) {
@@ -61,13 +108,24 @@ export function ExercisePlayer() {
     return () => clearInterval(metroTimerRef.current);
   }, [isMetroRunning, mBPM]);
 
-  // Clean up all timers when step changes
+  // Clean up all timers and audio urls when step changes
   useEffect(() => {
     setIsPlaying(false);
     setIsRecording(false);
     setIsMetroRunning(false);
     setIsBreathRunning(false);
     setActiveNoteIdx(null);
+    setAudioUrl(null);
+    setMicError(null);
+    setRecordingTime(0);
+    setQuizSelectedIdx(null);
+    
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (e) {}
+    }
+
     return () => {
       clearInterval(timerRef.current);
       clearInterval(metroTimerRef.current);
@@ -210,47 +268,146 @@ export function ExercisePlayer() {
         );
       case "quiz":
         return (
-          <div className="space-y-6 py-6">
+          <div className="space-y-6 py-6 animate-fade-in">
             <h3 className="text-xl font-bold text-indigo-400">❓ Quiz de compréhension</h3>
             <p className="text-lg font-medium text-slate-200">{step.q}</p>
             <div className="space-y-3 mt-4">
-              {step.opts?.map((opt, i) => (
-                <button
-                  key={i}
-                  className="w-fulltext-left w-full flex items-center gap-4 p-4 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-indigo-500 transition-colors text-left"
-                  onClick={() => {
-                    // In a simpler prototype, we just allow progression or show toast. Let's just visually respond.
-                    if (i === step.ok) alert("✅ Bonne réponse !");
-                    else alert("❌ Essayez encore.");
-                  }}
-                >
-                  <span className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0 font-bold text-slate-400">
-                    {String.fromCharCode(65 + i)}
-                   </span>
-                   <span className="text-slate-200 font-medium">{opt}</span>
-                </button>
-              ))}
+              {step.opts?.map((opt, i) => {
+                const isSelected = quizSelectedIdx === i;
+                const isCorrectAnswer = i === step.ok;
+                const hasSelectedAny = quizSelectedIdx !== null;
+
+                return (
+                  <button
+                    key={i}
+                    disabled={hasSelectedAny && quizSelectedIdx === step.ok}
+                    className={cn(
+                      "w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left duration-350 active:scale-99 outline-none",
+                      !hasSelectedAny && "bg-slate-800/50 border-slate-700 hover:border-indigo-500 hover:bg-slate-800",
+                      hasSelectedAny && isCorrectAnswer && "bg-emerald-500/10 border-emerald-500/60 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.15)]",
+                      hasSelectedAny && isSelected && !isCorrectAnswer && "bg-rose-500/10 border-rose-500/60 text-rose-300",
+                      hasSelectedAny && !isSelected && !isCorrectAnswer && "bg-slate-800/20 border-slate-850 opacity-40"
+                    )}
+                    onClick={() => {
+                      setQuizSelectedIdx(i);
+                    }}
+                  >
+                    <span className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xs transition-colors",
+                      !hasSelectedAny && "bg-slate-900 text-slate-400",
+                      hasSelectedAny && isCorrectAnswer && "bg-emerald-500 text-slate-950",
+                      hasSelectedAny && isSelected && !isCorrectAnswer && "bg-rose-500 text-slate-950",
+                      hasSelectedAny && !isSelected && !isCorrectAnswer && "bg-slate-900/40 text-slate-500"
+                    )}>
+                      {String.fromCharCode(65 + i)}
+                     </span>
+                     <span className="font-semibold">{opt}</span>
+                  </button>
+                );
+              })}
             </div>
+
+            {quizSelectedIdx !== null && (
+              <div className="mt-4 animate-fade-in">
+                {quizSelectedIdx === step.ok ? (
+                  <div className="p-4 bg-emerald-500/10 border border-emerald-550/25 rounded-xl text-emerald-300 text-sm font-semibold flex items-center gap-2">
+                    ✨ Excellente réponse ! Vous avez compris ce concept. Vous pouvez continuer le cours.
+                  </div>
+                ) : (
+                  <div className="p-4 bg-rose-500/10 border border-rose-550/25 rounded-xl text-rose-300 text-sm font-semibold flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <span>❌ Mauvaise réponse. Réessayez pour continuer !</span>
+                    <button
+                      onClick={() => setQuizSelectedIdx(null)}
+                      className="px-3 py-1.5 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors inline-block"
+                    >
+                      Essayer de nouveau
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       case "recorder":
         return (
           <div className="flex flex-col items-center justify-center py-12 space-y-6">
-            <h3 className="text-xl font-bold">🎙 Enregistreur Vocal</h3>
+            <h3 className="text-xl font-bold text-slate-100">🎙 Enregistreur de Performance</h3>
             <p className="text-slate-400 text-center max-w-sm">
-              Enregistrez-vous et écoutez l'exercice pour analyser votre progression.
+              Enregistrez un extrait de votre voix pour évaluer votre justesse et votre posture.
             </p>
-            <button
-              onClick={() => setIsRecording(!isRecording)}
-              className={cn(
-                "w-24 h-24 rounded-full flex items-center justify-center text-white transition-all shadow-xl",
-                isRecording ? "bg-rose-500 hover:bg-rose-600 animate-pulse outline outline-4 outline-rose-500/30" : "bg-indigo-500 hover:bg-indigo-600"
+            <div className="flex flex-col items-center space-y-4">
+              <button
+                onClick={isRecording ? stopRecording : startRecording}
+                className={cn(
+                  "w-24 h-24 rounded-full flex items-center justify-center text-white transition-all shadow-xl",
+                  isRecording 
+                    ? "bg-rose-500 hover:bg-rose-600 animate-pulse outline outline-4 outline-rose-500/30" 
+                    : "bg-indigo-500 hover:bg-indigo-600 active:scale-95"
+                )}
+              >
+                {isRecording ? <MicOff className="w-10 h-10" /> : <Mic className="w-10 h-10" />}
+              </button>
+              <div className="text-2xl font-mono font-bold text-slate-300">
+                {Math.floor(recordingTime / 60).toString().padStart(2, '0')}:{(recordingTime % 60).toString().padStart(2, '0')}
+              </div>
+              {isRecording && (
+                <span className="text-xs font-bold text-rose-500 bg-rose-500/10 px-3 py-1 rounded-full animate-pulse uppercase tracking-wider">
+                  Enregistrement en cours...
+                </span>
               )}
-            >
-              {isRecording ? <MicOff className="w-10 h-10" /> : <Mic className="w-10 h-10" />}
-            </button>
-            <div className="text-2xl font-mono font-bold text-slate-300">
-              {Math.floor(recordingTime / 60).toString().padStart(2, '0')}:{(recordingTime % 60).toString().padStart(2, '0')}
+            </div>
+
+            {micError && (
+              <div className="w-full max-w-md bg-rose-500/10 border border-rose-500/30 text-rose-200 text-sm p-4 rounded-2xl space-y-2">
+                <p className="font-semibold text-rose-400">⚠️ Erreur de Microphone :</p>
+                <p className="text-xs text-rose-300 leading-relaxed">{micError}</p>
+                <button 
+                  onClick={() => {
+                    const testUrl = window.location.href;
+                    window.open(testUrl, '_blank');
+                  }}
+                  className="mt-2 text-xs font-bold tracking-wide uppercase px-4 py-1.5 bg-rose-500/20 text-rose-300 rounded-lg hover:bg-rose-500/30 transition-colors w-full"
+                >
+                  Ouvrir dans un nouvel onglet ↗
+                </button>
+              </div>
+            )}
+
+            {audioUrl && (
+              <div className="w-full max-w-md bg-slate-950/80 border border-slate-800 rounded-2xl p-4 flex flex-col items-center space-y-3 mt-4">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Votre enregistrement</span>
+                <audio src={audioUrl} controls className="w-full focus:outline-none accent-indigo-500" />
+              </div>
+            )}
+          </div>
+        );
+      case "video":
+        const videoId = step.url ? (step.url.includes("v=") ? step.url.split("v=")[1]?.split("&")[0] : step.url.split("/").pop()) : "dQw4w9WgXcQ";
+        const fullWatchUrl = step.url || `https://www.youtube.com/watch?v=${videoId}`;
+        return (
+          <div className="space-y-6 text-center py-4">
+            <h3 className="text-xl font-bold text-slate-100">{step.name || "Didactique & Astuces"}</h3>
+            <p className="text-slate-400 max-w-lg mx-auto">{step.desc || "Regardez attentivement cette vidéo pour comprendre l'exercice."}</p>
+            <div className="relative aspect-video w-full max-w-2xl mx-auto rounded-3xl overflow-hidden border border-slate-800 bg-black shadow-2xl">
+              <iframe
+                src={`https://www.youtube.com/embed/${videoId}`}
+                className="absolute inset-0 w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title={step.name || "Vocal Instructor Video"}
+              />
+            </div>
+            <div className="pt-2">
+              <a
+                href={fullWatchUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-red-650 hover:bg-red-600 text-white font-bold rounded-xl shadow-lg transition-transform hover:scale-102 active:scale-98"
+                style={{ backgroundColor: "#e22e2e" }}
+              >
+                <span>Regarder la leçon sur YouTube ↗</span>
+              </a>
+              <p className="text-xs text-slate-500 mt-2">Cliquez si la vidéo ne s'affiche pas correctement dans la vue de test.</p>
             </div>
           </div>
         );
@@ -343,6 +500,61 @@ export function ExercisePlayer() {
             <div className="inline-flex items-center gap-2 px-4 py-2 mt-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl font-bold">
               +{moduleObj.xp} XP
             </div>
+          </div>
+        );
+      case "humming":
+        return (
+          <div className="space-y-6 text-center py-8 animate-fade-in flex flex-col items-center">
+            <h3 className="text-xl font-bold text-indigo-400">🐝 Exercice de Bourdonnement (Humming)</h3>
+            <p className="text-slate-400 max-w-sm">
+              Fermez la bouche, détendez la mâchoire et soufflez doucement un son vibrant (Mmmmmm) pour réveiller les résonateurs du visage.
+            </p>
+            
+            <div className="relative w-36 h-36 flex items-center justify-center my-6">
+              <div className="absolute inset-0 bg-indigo-500/10 rounded-full animate-ping duration-2000"></div>
+              <div className="absolute inset-4 bg-indigo-550/20 rounded-full animate-pulse"></div>
+              <div className="w-20 h-20 bg-indigo-500 rounded-full flex items-center justify-center text-slate-100 font-bold text-lg border-2 border-indigo-400 shadow-[0_0_30px_rgba(99,102,241,0.4)]">
+                Mmm!
+              </div>
+            </div>
+
+            <div className="bg-slate-950/50 border border-slate-800 p-4 rounded-xl text-xs text-slate-450 max-w-md space-y-2 text-left">
+              <p className="font-semibold text-indigo-300">💡 Astuces de pro :</p>
+              <ul className="list-disc pl-4 space-y-1">
+                <li>Sentez les vibrations sur l'avant de vos lèvres et le nez.</li>
+                <li>Si vous ressentez des chatouillements, vous le faites parfaitement !</li>
+                <li>Gardez une colonne d'air bien stable.</li>
+              </ul>
+            </div>
+          </div>
+        );
+      case "pitch":
+        return (
+          <div className="space-y-6 text-center py-8 animate-fade-in flex flex-col items-center">
+            <h3 className="text-xl font-bold text-indigo-400">🎯 Contrôle de Justesse & Intonation</h3>
+            <p className="text-slate-400 max-w-sm">
+              Chantez une note claire et tentez de garder votre justesse. Ce module s'entraîne avec le métronome ou un instrument d'accompagnement.
+            </p>
+
+            {/* Tuning needle visualization */}
+            <div className="w-full max-w-md bg-slate-950/80 border border-slate-800 rounded-2xl p-6 space-y-4">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block">Indicateur de Justesse</span>
+              <div className="h-4 w-full bg-slate-900 rounded-full relative overflow-hidden border border-slate-850">
+                {/* Center marker */}
+                <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-emerald-500 z-10"></div>
+                {/* Simulated needle wobble */}
+                <div className="absolute top-0 bottom-0 w-4 bg-indigo-500/80 rounded-full blur-xs transition-all duration-300 animate-pulse" style={{ left: "calc(50% - 8px)" }}></div>
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-500 tracking-wider font-semibold">
+                <span className="text-rose-450">TROP BAS</span>
+                <span className="text-emerald-400 font-bold">ACCORDÉ</span>
+                <span className="text-rose-450">TROP HAUT</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-400 max-w-md">
+              Améliorez votre oreille interne en écoutant les gammes présentées dans le module et reproduisez-les avec précision.
+            </p>
           </div>
         );
       default:

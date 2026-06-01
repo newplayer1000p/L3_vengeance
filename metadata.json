@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
-  "requestFramePermissions": [],
+  "name": "VocalPro",
+  "description": "Application d'apprentissage et d'entraînement vocal interactif avec leçons de respiration, exercices rythmés, métronome, gammes sonores et enregistreur.",
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

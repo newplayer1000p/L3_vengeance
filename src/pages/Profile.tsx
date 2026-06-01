@@ -22,11 +22,16 @@ export function Profile() {
     return prog >= 100;
   }).length;
 
-  const handleReset = () => {
-    if (window.confirm("Êtes-vous sûr de vouloir réinitialiser toute votre progression ? Cette action est irréversible.")) {
-      resetProgress();
-      alert("Votre progression a été réinitialisée avec succès !");
-    }
+  const [showConfirmReset, setShowConfirmReset] = React.useState(false);
+  const [showSuccessReset, setShowSuccessReset] = React.useState(false);
+
+  const handleResetConfirm = () => {
+    resetProgress();
+    setShowConfirmReset(false);
+    setShowSuccessReset(true);
+    setTimeout(() => {
+      setShowSuccessReset(false);
+    }, 4000);
   };
 
   return (
@@ -79,12 +84,39 @@ export function Profile() {
           <p className="text-sm text-slate-400 mb-4">
             Effacer vos données supprimera vos points d'XP, vos modules complétés et réinitialisera votre série.
           </p>
-          <button
-            onClick={handleReset}
-            className="px-6 py-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 font-bold rounded-xl hover:bg-rose-500/20 hover:border-rose-500/30 transition-colors w-full md:w-auto"
-          >
-            Réinitialiser la progression
-          </button>
+
+          {showConfirmReset ? (
+            <div className="bg-rose-550/10 border border-rose-500/30 p-4 rounded-2xl space-y-3">
+              <p className="text-sm text-rose-200 font-bold">⚠️ Êtes-vous sûr ? Cette action est irréversible.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleResetConfirm}
+                  className="px-4 py-2 bg-rose-600 text-white font-bold text-sm rounded-xl hover:bg-rose-500 transition-colors"
+                >
+                  Oui, réinitialiser
+                </button>
+                <button
+                  onClick={() => setShowConfirmReset(false)}
+                  className="px-4 py-2 bg-slate-800 text-slate-350 font-bold text-sm rounded-xl hover:bg-slate-700 transition-colors"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowConfirmReset(true)}
+              className="px-6 py-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 font-bold rounded-xl hover:bg-rose-500/20 hover:border-rose-500/30 transition-colors w-full md:w-auto"
+            >
+              Réinitialiser la progression
+            </button>
+          )}
+
+          {showSuccessReset && (
+            <div className="mt-4 p-3 bg-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-bold rounded-xl animate-bounce">
+              🎉 Votre progression a été réinitialisée avec succès !
+            </div>
+          )}
         </div>
       </section>
 

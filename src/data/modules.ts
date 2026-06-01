@@ -32,6 +32,7 @@ export const MODULES: Module[] = [
         list: ["Posez une main sur le ventre", "Inspirez lentement — sentez le ventre gonfler", "Expirez sur 8 temps en faisant 'Ssss'", "Ne levez jamais les épaules", "Répétez 5 fois en augmentant la durée"],
         syls: ["Ssss", "Ffff", "Hhhh", "Vvvv"]
       },
+      { type: "video", name: "Tutoriel — Maîtriser sa Respiration", desc: "Suivez ces conseils vidéo indispensables pour libérer votre diaphragme.", url: "https://www.youtube.com/watch?v=FALUqC2zU8c" },
       { type: "piano_ex", name: "Piano — Gamme montante", desc: "Suivez le piano note par note en chantant sur AH !", sequence: ["DO", "RÉ", "MI", "FA", "SOL"], tempo: 1000 },
       { type: "metronome" },
       { type: "quiz", q: "Quelle partie du corps actionne la respiration diaphragmatique ?", opts: ["Les épaules", "Le diaphragme", "La gorge"], ok: 1 },
@@ -52,6 +53,7 @@ export const MODULES: Module[] = [
         list: ["Tenez-vous droit, pieds écartés à la largeur des épaules", "Main sur le diaphragme", "Inspirez profondément par le ventre", "Dites 'HA !' en poussant avec le diaphragme", "Sentez la vibration résonner dans la poitrine"],
         syls: ["HA !", "HO !", "HE !", "HI !"]
       },
+      { type: "video", name: "Cours — Projeter sa Voix", desc: "Une explication physique et pratique pour chanter fort sans détruire ses cordes vocales.", url: "https://www.youtube.com/watch?v=8bAs5AWhI0I" },
       { type: "pitch" },
       { type: "quiz", q: "D'où doit venir la projection vocale ?", opts: ["De la gorge", "Du diaphragme", "Du nez"], ok: 1 },
       { type: "done" }
