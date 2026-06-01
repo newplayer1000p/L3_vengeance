@@ -10,7 +10,7 @@ import { ExercisePlayer } from "./pages/ExercisePlayer";
 export default function App() {
   return (
     <ProgressProvider>
-      <BrowserRouter>
+      <BrowserRouter basename="/vocalFreePro">
         <Routes>
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Dashboard />} />

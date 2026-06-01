@@ -5,6 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    base: '/vocalFreePro/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
