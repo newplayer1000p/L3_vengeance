@@ -1,13 +1,12 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, Flame, User, Settings } from "lucide-react";
+import { Home, Flame, User } from "lucide-react";
 import { cn } from "../lib/utils";
 
 const NAV_ITEMS = [
   { path: "/", icon: Home, label: "Accueil" },
   { path: "/challenges", icon: Flame, label: "Défis" },
   { path: "/profile", icon: User, label: "Profil" },
-  { path: "/settings", icon: Settings, label: "Réglages" },
 ];
 
 export function BottomNav() {

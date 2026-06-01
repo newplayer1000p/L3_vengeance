@@ -12,6 +12,7 @@ interface ProgressContextType extends ProgressState {
   addXp: (amount: number) => void;
   completeModule: (moduleId: number) => void;
   setLanguage: (lang: string) => void;
+  resetProgress: () => void;
   currentLevel: typeof LEVELS[0];
   nextLevel: typeof LEVELS[0] | null;
 }
@@ -46,6 +47,11 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({ ...s, language: lang }));
   };
 
+  const resetProgress = () => {
+    localStorage.removeItem("vocalpro_state");
+    setState({ xp: 0, streak: 1, completedModules: [], language: "fr" });
+  };
+
   let currentLevel = LEVELS[0];
   for (let i = LEVELS.length - 1; i >= 0; i--) {
     if (state.xp >= LEVELS[i].minXP) {
@@ -56,7 +62,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   const nextLevel = LEVELS.find((l) => l.minXP > state.xp) || null;
 
   return (
-    <ProgressContext.Provider value={{ ...state, addXp, completeModule, setLanguage, currentLevel, nextLevel }}>
+    <ProgressContext.Provider value={{ ...state, addXp, completeModule, setLanguage, resetProgress, currentLevel, nextLevel }}>
       {children}
     </ProgressContext.Provider>
   );

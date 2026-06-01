@@ -5,7 +5,6 @@ import { MainLayout } from "./layouts/MainLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { Challenges } from "./pages/Challenges";
 import { Profile } from "./pages/Profile";
-import { Settings } from "./pages/Settings";
 import { ExercisePlayer } from "./pages/ExercisePlayer";
 
 export default function App() {
@@ -17,7 +16,6 @@ export default function App() {
             <Route index element={<Dashboard />} />
             <Route path="challenges" element={<Challenges />} />
             <Route path="profile" element={<Profile />} />
-            <Route path="settings" element={<Settings />} />
           </Route>
           {/* Exercise player is deliberately outside the standard navigation layout
               because it acts as an immersive full-screen focus view */}

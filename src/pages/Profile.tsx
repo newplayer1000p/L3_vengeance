@@ -1,13 +1,11 @@
 import React from "react";
 import { useProgress } from "../context/ProgressContext";
 import { CHALLENGES, BADGES } from "../data/levels";
-import { User, Trophy, Flame, PlayCircle, Award, Settings } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { User, Trophy, Flame, PlayCircle, Award, RefreshCw } from "lucide-react";
 import { cn } from "../lib/utils";
 
 export function Profile() {
-  const { xp, streak, currentLevel, nextLevel, completedModules } = useProgress();
-  const navigate = useNavigate();
+  const { xp, streak, currentLevel, nextLevel, completedModules, resetProgress } = useProgress();
 
   const totalBadgesEarned = BADGES.filter((b) => {
     const val = b.type === "modules" ? completedModules.length : b.type === "streak" ? streak : xp;
@@ -24,15 +22,19 @@ export function Profile() {
     return prog >= 100;
   }).length;
 
+  const handleReset = () => {
+    if (window.confirm("Êtes-vous sûr de vouloir réinitialiser toute votre progression ? Cette action est irréversible.")) {
+      resetProgress();
+      alert("Votre progression a été réinitialisée avec succès !");
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen p-4 md:p-8 animate-fade-in">
       <header className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-100 to-slate-400">
           Mon Profil
         </h1>
-        <button onClick={() => navigate("/settings")} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors">
-          <Settings className="w-5 h-5" />
-        </button>
       </header>
 
       {/* Avatar & Level Summary */}
@@ -67,10 +69,29 @@ export function Profile() {
         ))}
       </section>
 
+      {/* Dangerous/Danger Zone Reset progress */}
+      <section className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden mb-8">
+        <div className="p-4 border-b border-slate-800 flex items-center gap-3">
+          <RefreshCw className="w-5 h-5 text-rose-500" />
+          <h3 className="text-sm font-bold text-slate-200">Zone de danger</h3>
+        </div>
+        <div className="p-6">
+          <p className="text-sm text-slate-400 mb-4">
+            Effacer vos données supprimera vos points d'XP, vos modules complétés et réinitialisera votre série.
+          </p>
+          <button
+            onClick={handleReset}
+            className="px-6 py-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 font-bold rounded-xl hover:bg-rose-500/20 hover:border-rose-500/30 transition-colors w-full md:w-auto"
+          >
+            Réinitialiser la progression
+          </button>
+        </div>
+      </section>
+
       {/* Architecture Plan Info */}
-      <section className="mt-4 p-6 bg-slate-900/50 border border-slate-800 rounded-3xl border-dashed">
+      <section className="p-6 bg-slate-900/50 border border-slate-800 rounded-3xl border-dashed">
         <h3 className="text-lg font-bold text-slate-300 mb-2">Évolutions futures</h3>
-        <p className="text-sm text-slate-500 leading-relaxed mb-4">
+        <p className="text-sm text-slate-500 leading-relaxed">
           L'architecture de cette application est conçue pour être modulaire. L'intégration de la gestion de comptes personnalisés, de la sauvegarde Cloud et d'un tableau de bord de paiement pourra s'implémenter facilement au-dessus du <span className="text-indigo-400 font-mono">ProgressProvider</span>.
         </p>
       </section>
